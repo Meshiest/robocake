@@ -27,21 +27,20 @@ const COMMANDS = [
   },
 ];
 
-const cwd = '/home/cake/containers/satisfactory';
-const OPTIONS = { cwd };
-
 const EMBED = {
   author: {
     icon_url: 'https://media.discordapp.net/attachments/755536678726139934/1048026350298087494/image.png',
     name: 'Satisfactory',
   }
-}
+};
 
 /**
  * @param {import('discord.js').Client} client
  * @param {import('discord.js').REST} rest
  */
 const setup = async (client, _rest) => {
+  const OPTIONS = { cwd: process.env.PATH_SATISFACTORY };
+
   client.on('interactionCreate', async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
     if (interaction.commandName !== 'satisfactory') return;

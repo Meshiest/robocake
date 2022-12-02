@@ -8,7 +8,8 @@ export const makeErrorEmbed = (err, extra={}) => ({
       ...extra,
       title: 'Error Message',
       color: Colors.Red,
-      description: '```' + err.toString() + '```',
+      description: (err?.message ?? (typeof err === 'string' ? err : 'Error JSON')) +
+        '\n```\n' + (err.stack ?? JSON.stringify(err, null, 2)) + '\n```',
     },
   ],
 });
