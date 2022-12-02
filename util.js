@@ -1,11 +1,12 @@
 import { Colors } from 'discord.js';
 
 /** @param {Error} err */
-export const makeErrorEmbed = (err) => ({
-  content: 'Error!!',
+export const makeErrorEmbed = (err, extra={}) => ({
+  content: '',
   embeds: [
     {
-      title: 'Error mesage',
+      ...extra,
+      title: 'Error Message',
       color: Colors.Red,
       description: '```' + err.toString() + '```',
     },

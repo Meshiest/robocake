@@ -1,3 +1,4 @@
+import { Colors } from 'discord.js';
 import compose from 'docker-compose';
 import { makeErrorEmbed } from '../util.js';
 
@@ -29,6 +30,13 @@ const COMMANDS = [
 const cwd = '/home/cake/containers/satisfactory';
 const OPTIONS = { cwd };
 
+const EMBED = {
+  author: {
+    icon_url: 'https://media.discordapp.net/attachments/755536678726139934/1048026350298087494/image.png',
+    name: 'Satisfactory',
+  }
+}
+
 /**
  * @param {import('discord.js').Client} client
  * @param {import('discord.js').REST} rest
@@ -40,17 +48,27 @@ const setup = async (client, _rest) => {
 
     switch (interaction.options.getSubcommand(true)) {
       case 'status': {
-        await interaction.reply('Getting service status...');
+        await interaction.reply('_getting service status..._');
         try {
           const ps = await compose.ps({
             ...OPTIONS,
             commandOptions: ['--format=json'],
           });
           const services = JSON.parse(ps.out);
-          if (services.length === 0) {
-            interaction.editReply('Server is not running');
+            if (services.length === 0) {
+              interaction.editReply({ content: '',
+                embeds: [{
+                  ...EMBED,
+                  color: Colors.Grey,
+                  fields: [{name: 'Server Status', value: 'offline'}]
+                }]
+              });
           } else {
-            interaction.editReply(`Server status: \`${services[0].State}\``);
+            interaction.editReply({ content: '', embeds: [{
+              ...EMBED,
+              color: Colors.Green,
+              fields: [{name: 'Server Status', value: services[0].State}]
+            }]});
           }
         } catch (err) {
           interaction.editReply(makeErrorEmbed(err));
@@ -58,20 +76,28 @@ const setup = async (client, _rest) => {
         break;
       }
       case 'start': {
-        await interaction.reply('Starting service...');
+        await interaction.reply('_starting service..._');
         try {
           await compose.upAll(OPTIONS);
-          interaction.editReply(`Server will be up in a moment!`);
+          interaction.editReply({ content: '', embeds: [{
+            ...EMBED,
+            color: Colors.DarkGreen,
+            fields: [{name: 'Server Status', value: 'starting'}]
+          }]});
         } catch (err) {
           interaction.editReply(makeErrorEmbed(err));
         }
         break;
       }
       case 'stop': {
-        await interaction.reply('Stopping service...');
+        await interaction.reply('_stopping service..._');
         try {
           await compose.down(OPTIONS);
-          interaction.editReply(`Server is stopped.`);
+          interaction.editReply({ content: '', embeds: [{
+            ...EMBED,
+            color: Colors.Yellow,
+            fields: [{name: 'Server Status', value: 'stopped'}]
+          }]});
         } catch (err) {
           interaction.editReply(makeErrorEmbed(err));
         }
