@@ -41,6 +41,19 @@ const EMBED = {
 const setup = async (client, _rest) => {
   const OPTIONS = { cwd: process.env.PATH_SATISFACTORY };
 
+  const getServices = async () => {
+    try {
+      const ps = await compose.ps({
+        ...OPTIONS,
+        commandOptions: ['--format=json'],
+      });
+      return JSON.parse(ps.out);
+    } catch (err) {
+      console.error('error getting services', err);
+      return [];
+    }
+  };
+
   client.on('interactionCreate', async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
     if (interaction.commandName !== 'satisfactory') return;
@@ -49,11 +62,7 @@ const setup = async (client, _rest) => {
       case 'status': {
         await interaction.reply('_getting service status..._');
         try {
-          const ps = await compose.ps({
-            ...OPTIONS,
-            commandOptions: ['--format=json'],
-          });
-          const services = JSON.parse(ps.out);
+          const services = await getServices();
             if (services.length === 0) {
               interaction.editReply({ content: '',
                 embeds: [{
@@ -75,13 +84,16 @@ const setup = async (client, _rest) => {
         break;
       }
       case 'start': {
-        await interaction.reply('_starting service..._');
+        const services = await getServices();
+        const isRunning = services[0]?.State === 'running';
+
+        await interaction.reply(`_${isRunning ? 're' : ''}starting service..._`);
         try {
-          await compose.upAll(OPTIONS);
+          await (isRunning ? compose.restartAll(OPTIONS) : compose.upAll(OPTIONS));
           interaction.editReply({ content: '', embeds: [{
             ...EMBED,
-            color: Colors.DarkGreen,
-            fields: [{name: 'Server Status', value: 'starting'}]
+            color: isRunning ? Colors.Navy : Colors.DarkGreen,
+            fields: [{name: 'Server Status', value: (isRunning ? 're' : '') + 'starting'}]
           }]});
         } catch (err) {
           interaction.editReply(makeErrorEmbed(err));
