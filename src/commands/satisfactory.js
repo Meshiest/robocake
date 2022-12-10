@@ -1,6 +1,9 @@
 import { Colors } from 'discord.js';
 import compose from 'docker-compose';
 import { makeErrorEmbed } from '../util.js';
+import path from 'path';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
+import SatisfactoryStatus from '../lib/satisfactory.js';
 
 /** @type {import('discord.js').ApplicationCommandData[]} */
 const COMMANDS = [
@@ -23,6 +26,18 @@ const COMMANDS = [
         name: 'stop',
         description: 'Stops the server',
       },
+      {
+        type: 1,
+        name: 'experimental',
+        description: 'Get the experimental status of the server',
+        options: [
+          {
+              type: 5,
+              name: 'set-value',
+              description: 'Set the experimental status of the server. (Requires a stop and start)'
+            }
+          ]
+        }
     ],
   },
 ];
@@ -40,8 +55,22 @@ const EMBED = {
  */
 const setup = async (client, _rest) => {
   const OPTIONS = { cwd: process.env.PATH_SATISFACTORY };
+  const ENV_FILE =  path.join(OPTIONS.cwd, '.env');
 
-  const getServices = async () => {
+  function getExperimental() {
+    if (!existsSync(ENV_FILE)) return null;
+    const match = readFileSync(ENV_FILE).toString().match(/STEAMBETA=(true|false)/);
+    if (!match) return null;
+    return match[1] === 'true';
+  }
+
+  function setExperimental(value) {
+    if (!existsSync(ENV_FILE)) return null;
+    const newData = readFileSync(ENV_FILE).toString().replace(/STEAMBETA=(true|false)/, `STEAMBETA=${Boolean(value)}`);
+    writeFileSync(ENV_FILE, newData);
+  }
+
+  async function getServices() {
     try {
       const ps = await compose.ps({
         ...OPTIONS,
@@ -52,7 +81,14 @@ const setup = async (client, _rest) => {
       console.error('error getting services', err);
       return [];
     }
-  };
+  }
+
+  async function getServerStatus() {
+     const tester = new SatisfactoryStatus();
+    const res = await tester.test(process.env.SATISFACTORY_HOST, process.env.SATISFACTORY_QUERY_PORT);
+    tester.close();
+    return res;
+  }
 
   client.on('interactionCreate', async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
@@ -61,26 +97,37 @@ const setup = async (client, _rest) => {
     switch (interaction.options.getSubcommand(true)) {
       case 'status': {
         await interaction.reply('_getting service status..._');
+        let services = [], status, serverError;
+
         try {
-          const services = await getServices();
-            if (services.length === 0) {
-              interaction.editReply({ content: '',
-                embeds: [{
-                  ...EMBED,
-                  color: Colors.Grey,
-                  fields: [{name: 'Server Status', value: 'offline'}]
-                }]
-              });
-          } else {
-            interaction.editReply({ content: '', embeds: [{
-              ...EMBED,
-              color: Colors.Green,
-              fields: [{name: 'Server Status', value: services[0].State}]
-            }]});
-          }
+          services = await getServices() ?? [];
         } catch (err) {
-          interaction.editReply(makeErrorEmbed(err));
+          console.error('error fetching service status', err);
         }
+
+        try {
+          status = await getServerStatus();
+        } catch (err) {
+          if (typeof err === 'string')
+            serverError = err;
+          console.error('error fetching server status', err);
+        }
+
+        interaction.editReply({ content: '',
+          embeds: [{
+            ...EMBED,
+            color: services.length === 0 && !status ? Colors.Grey : Colors.Green,
+            fields: [
+              {name: 'Container Status', value: services[0]?.State ?? 'stopped', inline: false},
+              status && {name: 'Game Server', value: status.state + '', inline: false},
+              status && {name: 'Port', value: status.port + '', inline: true},
+              status && {name: 'Version', value: status.version + '', inline: true},
+              status && {name: 'Ping', value: status.ping + 'ms', inline: true},
+              !status && !serverError && {name: 'Query Status', value: 'error', inline: false},
+              !status && serverError && {name: 'Query Error', value: serverError, inline: false},
+            ].filter(Boolean)
+          }]
+        });
         break;
       }
       case 'start': {
@@ -113,6 +160,31 @@ const setup = async (client, _rest) => {
           interaction.editReply(makeErrorEmbed(err));
         }
         break;
+      }
+      case 'experimental': {
+        let oldValue;
+        if (interaction.options.get('set-value', false)) {
+          oldValue = getExperimental();
+          const newValue = interaction.options.getBoolean('set-value', false);
+
+          if (newValue !== oldValue) setExperimental(newValue);
+          else oldValue = undefined;
+        }
+
+        const value = getExperimental();
+        interaction.reply({ content: '', embeds: [{
+          ...EMBED,
+          color: Colors.Blue,
+          fields: [
+            {
+              name: 'Experimental',
+              value: (value === null ? 'unknown' : value ? 'yes' : 'no') +
+                (typeof oldValue !== 'undefined'
+                  ? ` (was ${oldValue === null ? 'unknown' : oldValue ? 'yes' : 'no'})`
+                  : '')
+            }
+          ]
+        }]});
       }
     }
   });

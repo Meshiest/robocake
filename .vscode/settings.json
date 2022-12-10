@@ -1,6 +1,6 @@
 {
   "javascript.preferences.importModuleSpecifierEnding": "js",
-  "[js]": {
+  "[javascript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": true
   },
@@ -9,5 +9,6 @@
     "editor.insertSpaces": true,
     "editor.tabSize": 2,
     "editor.autoIndent": "advanced"
-  }
+  },
+  "editor.formatOnSave": true
 }

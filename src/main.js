@@ -7,7 +7,10 @@ const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds],
+
+});
 
 client.on('ready', () => console.log(`Logged in as ${client.user.tag}!`));
 
